@@ -5,6 +5,7 @@
 // DDS
 #include "UserDefaults.h"
 // BOOST
+#include <boost/filesystem.hpp>
 #include <boost/program_options/cmdline.hpp>
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/parsers.hpp>
@@ -23,6 +24,7 @@ using namespace MiscCommon;
 using namespace std;
 namespace bpo = boost::program_options;
 namespace boost_hlp = MiscCommon::BOOSTHelper;
+namespace bfs = boost::filesystem;
 
 // Command line parser
 bool parseCmdLine(int _Argc, char* _Argv[], bool* _verbose)
@@ -36,7 +38,7 @@ bool parseCmdLine(int _Argc, char* _Argv[], bool* _verbose)
     visible.add_options()("verbose,V", "Cause dds-user-defaults to be verbose in case of an error");
     visible.add_options()("path,p", "Show DDS user defaults config file path");
     visible.add_options()("default,d", "Generate a default DDS configuration file");
-    visible.add_options()("config,c", bpo::value<string>(), "DDS user defaults configuration file");
+    visible.add_options()("config,c", bpo::value<string>()->default_value("$HOME/.DDS/DDS.cfg"), "DDS user defaults configuration file");
     visible.add_options()("session,s", bpo::value<string>(), "DDS Session ID");
     visible.add_options()("ignore-default-sid", bpo::bool_switch(&ignoreDefaultSID), "Ignore default DDS Session ID");
     visible.add_options()("key", bpo::value<string>(), "Get a value for the given key");
@@ -101,30 +103,36 @@ bool parseCmdLine(int _Argc, char* _Argv[], bool* _verbose)
         cout << "Generating a default DDS configuration file..." << endl;
 
         if (MiscCommon::file_exists(sCfgFileName) && !vm.count("force"))
-            throw runtime_error("Error: Destination file exists. Please use -f options to overwrite it.");
-
-        if (sCfgFileName.empty())
-            throw runtime_error("Error: Destination file name is empty. Please use -c options to define it.");
-
-        ofstream f(sCfgFileName.c_str());
-        if (!f.is_open())
         {
-            string s("Can't open file ");
-            s += sCfgFileName;
-            s += " for writing.";
-            throw runtime_error(s);
+            cout << "Destination file exists. Please use -f options to overwrite it." << endl;
         }
+        else
+        {
+          if (sCfgFileName.empty())
+              throw runtime_error("Error: Destination file name is empty. Please use -c options to define it.");
 
-        f << "# DDS user defaults\n"
-          << "# version: " << DDS_USER_DEFAULTS_CFG_VERSION_STRING << "\n"
-          << "#\n"
-          << "# Please use DDS User's Manual to find out more details on\n"
-          << "# keys and values of this configuration file.\n"
-          << "# DDS User's Manual can be found in $DDS_LOCATION/doc folder or\n"
-          << "# by the following address: http://dds.gsi.de/documentation.html\n";
-        CUserDefaults::printDefaults(f);
-        cout << "Generating a default DDS configuration file - DONE." << endl;
-        return false;
+          bfs::create_directories(bfs::path(sCfgFileName).parent_path());
+
+          ofstream f(sCfgFileName.c_str());
+          if (!f.is_open())
+          {
+              string s("Can't open file ");
+              s += sCfgFileName;
+              s += " for writing.";
+              throw runtime_error(s);
+          }
+
+          f << "# DDS user defaults\n"
+            << "# version: " << DDS_USER_DEFAULTS_CFG_VERSION_STRING << "\n"
+            << "#\n"
+            << "# Please use DDS User's Manual to find out more details on\n"
+            << "# keys and values of this configuration file.\n"
+            << "# DDS User's Manual can be found in $DDS_LOCATION/doc folder or\n"
+            << "# by the following address: http://dds.gsi.de/documentation.html\n";
+          CUserDefaults::printDefaults(f);
+          cout << "Generating a default DDS configuration file - DONE." << endl;
+        }
+        return true;
     }
 
     CUserDefaults& userDefaults = CUserDefaults::instance();
